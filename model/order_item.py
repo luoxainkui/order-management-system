@@ -4,7 +4,7 @@ from core.db import Base
 # 导入时间
 from datetime import datetime 
 # 导入字段类型：列、整数、字符串
-from sqlalchemy import Column,Integer,String,DateTime
+from sqlalchemy import Column,Integer,DateTime,String
 
 class OrderItem(Base):
     __tablename__ = "orderitem"
@@ -15,7 +15,7 @@ class OrderItem(Base):
     # 购买商品id，整数，非空
     product_id = Column(Integer,nullable=False)
     # 商品名称，整数，非空
-    product_name = Column(string=100,nullable=False)
+    product_name = Column(String(100),nullable=False)
     # 商品单价，整数非空
     price = Column(Integer,nullable=False)
     # 购买数量，整数，非空
