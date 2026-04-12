@@ -3,7 +3,7 @@ from sqlalchemy.orm import Session
 # 导入订单表
 from model.order_info import Order
 # 导入前端传参
-from schema.order_schema import OrderCreate
+from schema.order_schema import OrderCreate,OrderUpdate
 # 导入时间
 from datetime import datetime as dt
 
@@ -59,3 +59,30 @@ class OrderDAO:
         db.commit()
         db.refresh(order)
         return order
+    
+    @staticmethod
+    def update_order(db:Session,order_id:int,order_update: OrderUpdate) ->Order|None:
+        """
+        ID修改订单
+        :param db: 数据库会话
+        :param order_id: 要删除的订单ID
+        :return: 删除成功返回True,订单不存在/删除失败返回False
+        """
+        order = db.query(Order).filter(Order.id == order_id).first()
+        if not order:
+            return None
+        update_data = order_update.model_dump(exclude_unset=True)
+        update_data["update_time"] = dt.now()
+        for key,value in update_data.items():
+            setattr(order,key,value)
+        db.commit() 
+        db.refresh(order)
+        return order
+    @staticmethod
+    def delete_order(db:Session,order_id:int):
+
+
+
+
+
+
