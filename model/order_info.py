@@ -4,7 +4,7 @@ from core.db import Base
 # 时间
 from datetime import datetime
 # 订单信息
-from sqlalchemy import Column,Integer,String,DateTime
+from sqlalchemy import Column,Integer,String,DateTime,Boolean
 
 
 class Order(Base):
@@ -21,3 +21,10 @@ class Order(Base):
     status = Column(String(20), default="待支付")
     # 获取时间：存入数据库，请求系统时间now
     created_at = Column(DateTime, default=datetime.now)
+
+
+# 软删除类型
+    # 判断删除False/True
+    is_delete = Column(Boolean,default=False)
+    # 添加时间默认空值
+    delete_time = Column(DateTime,nullable=True)

@@ -78,11 +78,29 @@ class OrderDAO:
         db.commit() 
         db.refresh(order)
         return order
+    
     @staticmethod
-    def delete_order(db:Session,order_id:int):
-
-
-
+    def dalete_order(db:Session,order_id:int):
+        order = db.query(Order).filter(Order.id == order_id,Order.is_delete == False).first()
+        if not order:
+            return False
+        Order.is_delete = True
+        Order.delete_time = dt.now
+        db.commit()
+        return 
+    @staticmethod
+    def hard_order(db:Session,order_id:int) ->bool:
+        """
+        :param db: 数据库会话
+        :param order: 筛选id
+        :return: 等于则delete删除,不等于则False
+        """
+        order = db.query(Order).filter(Order.id == order_id).first()
+        if not order:
+            return False
+        db.delete(order)
+        db.commit()
+        return True
 
 
 
