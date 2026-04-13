@@ -80,17 +80,64 @@ class OrderDAO:
         return order
     
     @staticmethod
-    def dalete_order(db:Session,order_id:int):
+    def delete_order(db:Session,order_id:int) ->bool:
+        """
+        软删除,仅为标记
+        :param db: 数据会话
+        :param order: 筛选id以及is_datete是否为false
+        :return 删除成功返回True不成功为False
+        """
         order = db.query(Order).filter(Order.id == order_id,Order.is_delete == False).first()
         if not order:
             return False
-        Order.is_delete = True
-        Order.delete_time = dt.now
+        order.is_delete = True
+        order.delete_time = dt.now()
         db.commit()
-        return 
+        return True
+    
+    @staticmethod
+    def deleted_list(db:Session,page: int = 1, size: int = 10) ->dict:
+        """
+        分页查询【回收站】的订单（只查已经软删除的订单）
+        :param db: 数据库会话
+        :param page: 当前第几页,默认第1页
+        :param size: 每页显示多少条,默认10条
+        :return: 分页数据（列表+页码+总数+总页数）
+        """
+        skip = (page-1)*size
+        query = db.query(Order).filter(Order.is_delete == True)
+        order_list = query.offset(skip).limit(size).all()
+        total = query.count()
+        total_pages = (total+size-1)//size
+        return {
+            "list" : order_list, # 当前订单数据
+            "page" : page, # 当前页码
+            "size" : size, # 每页多少条
+            "total" : total, # 回收站总条数
+            "total_pages" : total_pages # 一共多少页
+        }
+    @staticmethod
+    def restore_order(db:Session,order_id:int) ->bool:
+        """
+        恢复已删除的数据
+        :param db: 数据会话
+        :param order: 筛选id以及is_datete是否为True
+        :param order.is_delete: 恢复数据,取消删除标记
+        :param dalete_time: 清除时间
+        return 恢复成功返回True,订单不存在返回False
+        """
+        order = db.query(Order).filter(Order.id == order_id,Order.is_delete == True).first()
+        if not order:
+            return False
+        order.is_delete = False
+        order.delete_time = None
+        db.commit()
+        return True
+
     @staticmethod
     def hard_order(db:Session,order_id:int) ->bool:
         """
+        永久删除数据(不能恢复)
         :param db: 数据库会话
         :param order: 筛选id
         :return: 等于则delete删除,不等于则False
@@ -101,6 +148,3 @@ class OrderDAO:
         db.delete(order)
         db.commit()
         return True
-
-
-
