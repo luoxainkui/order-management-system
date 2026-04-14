@@ -19,7 +19,7 @@ class OrderDAO:
         return db.query(Order).filter(Order.id == order_id).first()
     
     @staticmethod
-    def list_order(db:Session,page: int = 1, size: int = 10):
+    def list_order(db:Session,page: int = 1, size: int = 10) ->dict:
         """
         分页查询订单列表
         :param page: 第几页(默认第1页)

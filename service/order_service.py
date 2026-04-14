@@ -30,18 +30,50 @@ class OrderService:
         return order
 
     @staticmethod
-    def query_list(db:Session,page: int = 1, size:int = 10):
-        if page<1:
-            page =1
+    def query_list(db:Session,page: None, size: None) ->dict:
+        """
+        页面展示，分页查询
+        :page: 把异常降级强制转义为1
+        :size: 把异常降级强制转义为10
+        """
+        try:
+            page = int(page) if page not in (None,"") else 1
+            size = int(size) if size not in (None,"") else 10
 
-        if size>100:
-            size=100
+            page = max(page,1)
+            size = min(size,100)
 
+            return OrderDAO.list_order(db,page=page,size=size)
+        except Exception:
+            return {"list" : [],"page" : 1,"size" : 10,"total" : 0,"total_pages" : 0}
 
+    @staticmethod
+    def deleted_list(db:Session,page: None,size: None):
+        """
+        页面展示,分页查询已删除的
+        :page: 把异常降级强制转义为1
+        :size: 把异常降级强制转义为10
+        """
+        try:
+            page = int(page) if page not in (None,"") else 1
+            size = int(size) if size not in (None,"") else 10
 
+            page = max(page,1)
+            size = min(size,10)
+            
+            return OrderDAO.deleted_list(db,page=page,size=size)
+        except Exception:
+            return {"list" : [],"page" : 1,"size" : 10,"total" : 0,"total_pages" : 0}
 
-
-
-
-
-
+    @staticmethod
+    def create_order(db:Session,order_create:OrderCreate,current_user_id:int):
+        create = order_create.model_dump()
+        total_price = create.get("total_price",0)
+        if not isinstance(total_price,int) or total_price < 0 or total_price > 999999:
+            raise HTTPException(status_code=400,detail="价格必须在0~999999之间")
+        
+        order_no = str(create.get("order_no","")).strip()
+        if not order_no or len(order_no)>50:
+            raise HTTPException(status_code=400,detail="订单编号不合法")
+        
+    @staticmethod
