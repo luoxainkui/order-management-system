@@ -8,11 +8,15 @@ class OrderCreate(BaseModel):
     """
     order_no : str 
     total_price = float
-    status = str
+    status = str | None = "待支付"
+    user_id = int | None = None
 
 # 继承
 class OrderUpdate(OrderCreate):
-
-    order_no : str |None = None
-    total_price : float |None = None
-    status : str |None = None
+    """
+    继承状态
+    """
+    order_no : str | None = None
+    total_price : float | None | int = None
+    status : str | None = None
+    user_id = str | None = None

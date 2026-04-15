@@ -16,7 +16,7 @@ class OrderDAO:
         :param order_id: 订单ID
         :return: 订单实体,不存在则返回None
         """
-        return db.query(Order).filter(Order.id == order_id).first()
+        return db.query(Order).filter(Order.id == order_id,Order.is_delete==0).first()
     
     @staticmethod
     def list_order(db:Session,page: int = 1, size: int = 10) ->dict:
@@ -27,8 +27,9 @@ class OrderDAO:
         :return 字典(包含分页信息+当前页数据列表)
         """
         skip = (page-1)*size
-        order_list = db.query(Order).offset(skip).limit(size).all()
-        total = db.query(Order).count()
+        query = db.query(Order).filter(Order.is_delete == 0)
+        order_list = query.offset(skip).limit(size).all()
+        total = query.count()
         total_pages = (total+size -1) //size
         return {
             "list" : order_list, # 当前页数据
@@ -54,6 +55,7 @@ class OrderDAO:
         date = order_create.model_dump()
         date["create_time"] = dt.now()
         date["update_time"] = dt.now()
+        date["is_delete"] = 0
         order = Order(**date)
         db.add(order)
         db.commit()
@@ -87,10 +89,10 @@ class OrderDAO:
         :param order: 筛选id以及is_datete是否为false
         :return 删除成功返回True不成功为False
         """
-        order = db.query(Order).filter(Order.id == order_id,Order.is_delete == False).first()
+        order = db.query(Order).filter(Order.id == order_id,Order.is_delete == 0).first()
         if not order:
             return False
-        order.is_delete = True
+        order.is_delete = 1
         order.delete_time = dt.now()
         db.commit()
         return True
@@ -105,7 +107,7 @@ class OrderDAO:
         :return: 分页数据（列表+页码+总数+总页数）
         """
         skip = (page-1)*size
-        query = db.query(Order).filter(Order.is_delete == True)
+        query = db.query(Order).filter(Order.is_delete == 1)
         order_list = query.offset(skip).limit(size).all()
         total = query.count()
         total_pages = (total+size-1)//size
@@ -126,10 +128,10 @@ class OrderDAO:
         :param dalete_time: 清除时间
         return 恢复成功返回True,订单不存在返回False
         """
-        order = db.query(Order).filter(Order.id == order_id,Order.is_delete == True).first()
+        order = db.query(Order).filter(Order.id == order_id,Order.is_delete == 0).first()
         if not order:
             return False
-        order.is_delete = False
+        order.is_delete = 1
         order.delete_time = None
         db.commit()
         return True
@@ -148,3 +150,11 @@ class OrderDAO:
         db.delete(order)
         db.commit()
         return True
+    
+    @staticmethod
+    def query_by_order_no(db:Session,order_no:str) ->Order|None:
+        """
+        查重数据
+        :return: 只查重未删除的
+        """
+        return db.query(Order).filter(Order.order_no == order_no,Order.is_delete == 0).first()

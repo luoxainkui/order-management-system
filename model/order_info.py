@@ -25,6 +25,6 @@ class Order(Base):
 
 # 软删除类型
     # 判断删除False/True
-    is_delete = Column(Boolean,default=False)
+    is_delete = Column(Integer,default=0)
     # 添加时间默认空值
     delete_time = Column(DateTime,nullable=True)
