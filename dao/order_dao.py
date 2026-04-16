@@ -9,25 +9,36 @@ from datetime import datetime as dt
 
 class OrderDAO:
     @staticmethod
-    def query_order(db:Session,order_id:int) ->Order|None:
+    def query_order(db:Session,order_id:int,*,include_deleted:bool=False,only_deleted:bool=False) ->Order|None:
         """
-        根据订单ID查询单个订单
+        根据订单ID查询订单。
+
         :param db: 数据库会话
         :param order_id: 订单ID
+        :param include_deleted: 是否包含软删除订单
+        :param only_deleted: 仅查询软删除订单
         :return: 订单实体,不存在则返回None
         """
-        return db.query(Order).filter(Order.id == order_id,Order.is_delete==0).first()
+        query = db.query(Order).filter(Order.id == order_id)
+        if only_deleted:
+            query = query.filter(Order.is_delete == 1)
+        elif not include_deleted:
+            query = query.filter(Order.is_delete == 0)
+        return query.first()
     
     @staticmethod
-    def list_order(db:Session,page: int = 1, size: int = 10) ->dict:
+    def list_order(db:Session,page: int = 1, size: int = 10, user_id: int | None = None) ->dict:
         """
         分页查询订单列表
         :param page: 第几页(默认第1页)
         :param size: 每页显示几条(默认10条)
+        :param user_id: 可选的用户ID过滤
         :return 字典(包含分页信息+当前页数据列表)
         """
         skip = (page-1)*size
         query = db.query(Order).filter(Order.is_delete == 0)
+        if user_id is not None:
+            query = query.filter(Order.user_id == user_id)
         order_list = query.offset(skip).limit(size).all()
         total = query.count()
         total_pages = (total+size -1) //size
@@ -43,18 +54,11 @@ class OrderDAO:
     def create_order(db:Session,order_create:OrderCreate) ->Order:
         """
         创建订单
-        :date: 将订单数据转换成字典
-        :create_time: 创建时间
-        :update_time: 更新时间
-        :order: 将字典拆包,装进数据库订单时间
-        :db.add: 准备保存到数据库
-        :db.commit: 真正提交保存（永久写入）
-        :db.refresh: 刷新,获取最新数据(包括自增ID)
-        :return: 返回订单
+        :param order_create: 订单创建数据
+        :return: 返回订单对象
         """
         date = order_create.model_dump()
-        date["create_time"] = dt.now()
-        date["update_time"] = dt.now()
+        date["created_at"] = dt.now()
         date["is_delete"] = 0
         order = Order(**date)
         db.add(order)
@@ -65,16 +69,18 @@ class OrderDAO:
     @staticmethod
     def update_order(db:Session,order_id:int,order_update: OrderUpdate) ->Order|None:
         """
-        ID修改订单
+        根据ID更新订单信息
         :param db: 数据库会话
-        :param order_id: 要删除的订单ID
-        :return: 删除成功返回True,订单不存在/删除失败返回False
+        :param order_id: 订单ID
+        :param order_update: 更新数据
+        :return: 更新后的订单对象，订单不存在返回 None
         """
-        order = db.query(Order).filter(Order.id == order_id).first()
+        order = db.query(Order).filter(Order.id == order_id, Order.is_delete == 0).first()
         if not order:
             return None
         update_data = order_update.model_dump(exclude_unset=True)
-        update_data["update_time"] = dt.now()
+        if not update_data:
+            return order
         for key,value in update_data.items():
             setattr(order,key,value)
         db.commit() 
@@ -98,16 +104,19 @@ class OrderDAO:
         return True
     
     @staticmethod
-    def deleted_list(db:Session,page: int = 1, size: int = 10) ->dict:
+    def deleted_list(db:Session,page: int = 1, size: int = 10, user_id: int | None = None) ->dict:
         """
         分页查询【回收站】的订单（只查已经软删除的订单）
         :param db: 数据库会话
         :param page: 当前第几页,默认第1页
         :param size: 每页显示多少条,默认10条
+        :param user_id: 可选的用户ID过滤
         :return: 分页数据（列表+页码+总数+总页数）
         """
         skip = (page-1)*size
         query = db.query(Order).filter(Order.is_delete == 1)
+        if user_id is not None:
+            query = query.filter(Order.user_id == user_id)
         order_list = query.offset(skip).limit(size).all()
         total = query.count()
         total_pages = (total+size-1)//size
@@ -123,15 +132,15 @@ class OrderDAO:
         """
         恢复已删除的数据
         :param db: 数据会话
-        :param order: 筛选id以及is_datete是否为True
+        :param order: 筛选id以及is_delete是否为True
         :param order.is_delete: 恢复数据,取消删除标记
-        :param dalete_time: 清除时间
+        :param delete_time: 清除时间
         return 恢复成功返回True,订单不存在返回False
         """
-        order = db.query(Order).filter(Order.id == order_id,Order.is_delete == 0).first()
+        order = db.query(Order).filter(Order.id == order_id,Order.is_delete == 1).first()
         if not order:
             return False
-        order.is_delete = 1
+        order.is_delete = 0
         order.delete_time = None
         db.commit()
         return True

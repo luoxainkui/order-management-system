@@ -1,10 +1,12 @@
 #==============项目入口=============
 from fastapi import FastAPI
 from core.db import Base, engine
+from core.logger import logger
 from api import user_api, product_api, order_api, stock_api
 
 # 创建表
 Base.metadata.create_all(bind=engine)
+logger.info('FastAPI application initialized.')
 
 app = FastAPI(title="订单管理系统")
 
