@@ -1,7 +1,9 @@
 #==============项目入口=============
-from fastapi import FastAPI
+from fastapi import FastAPI, HTTPException, Request
+from fastapi.responses import JSONResponse
 from core.db import Base, engine
 from core.logger import logger
+from core.exception import OrderManagementException
 from api import user_api, product_api, order_api, stock_api
 
 # 创建表
@@ -9,6 +11,14 @@ Base.metadata.create_all(bind=engine)
 logger.info('FastAPI application initialized.')
 
 app = FastAPI(title="订单管理系统")
+
+# 全局异常处理器
+@app.exception_handler(OrderManagementException)
+async def order_management_exception_handler(request: Request, exc: OrderManagementException):
+    return JSONResponse(
+        status_code=exc.code,
+        content={"message": exc.message, "code": exc.code}
+    )
 
 # 路由
 app.include_router(user_api.router, prefix="/api/user", tags=["用户"])
