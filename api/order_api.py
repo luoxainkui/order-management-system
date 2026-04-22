@@ -39,7 +39,7 @@ def get_order(
     order_id: int,
     db: Session = Depends(get_db),
     current_user_id: int = Depends(get_current_user_id)
-):
+) ->dict[str,any]:
     """
     获取订单详情接口
     :param order_id: 订单ID
@@ -47,9 +47,29 @@ def get_order(
     :param current_user_id: 当前登录用户ID
     :return: 订单详情对象或错误信息
     """
-    return OrderService.query_order(db,order_id,current_user_id)
-
-
+    order = OrderService.query_order(db,order_id,current_user_id)
+    return {
+        "code": 200,
+        "msg": "查询成功",
+        "data":order
+    }
+    
+@router.get("/list",summary="获取订单列表")
+def list_order(
+    page_info:tuple[int,int] = Depends(page_params),
+    db:Session = Depends(get_db),
+    current_user_id: int = Depends(get_current_user_id)
+) ->dict[str,any]:
+    """
+    分页查询当前用户的订单列表
+    """
+    page,size = page_info
+    data = OrderService.query_list(db,page=page,size=size,current_user_id=current_user_id)
+    return {
+        "code": 200,
+        "msg": "查询成功",
+        "data":data
+    }
 
 
 
