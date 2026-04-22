@@ -62,6 +62,7 @@ def list_order(
 ) ->dict[str,any]:
     """
     分页查询当前用户的订单列表
+    :权限: 只查自己订单
     """
     page,size = page_info
     data = OrderService.query_list(db,page=page,size=size,current_user_id=current_user_id)
@@ -71,8 +72,35 @@ def list_order(
         "data":data
     }
 
+@router.post("/create",summary="创建订单")
+def create_order(
+    order_on = OrderCreate,
+    db:Session = Depends(get_db),
+    current_user_id: int = Depends(get_current_user_id)
+) ->dict[str,any]:
+    """
+    传入创建客户订单,返回给客户观看
+    """
+    order = OrderService.create_order(db,order_on,current_user_id)
+    return {
+        "code":200,
+        "msg": "查询成功",
+        "data": order
+    }
 
-
-
-
-
+@router.put("/{order_id}",summary="修改订单")
+def update_order(
+    order_id: int,
+    order_in: OrderUpdate,
+    db:Session = Depends(get_db),
+    current_user_id: int = Depends(get_current_user_id)
+) ->dict[str,any]:
+    """
+    传入客户修改订单
+    """
+    update_order = OrderService.update_order(db.order_id,order_in,current_user_id)
+    return {
+        "code": 200,
+        "msg": " 查询成功",
+        "dara": update_order
+    }
