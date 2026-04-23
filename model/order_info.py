@@ -4,7 +4,7 @@ from core.db import Base
 # 时间
 from datetime import datetime
 # 订单信息
-from sqlalchemy import Column,Integer,String,DateTime,Boolean
+from sqlalchemy import Column,Integer,String,DateTime
 
 
 class Order(Base):

@@ -11,8 +11,7 @@ class OrderDAO:
     @staticmethod
     def query_order(db:Session,order_id:int,*,include_deleted:bool=False,only_deleted:bool=False) ->Order|None:
         """
-        根据订单ID查询订单。
-
+        根据订单ID查询订单
         :param db: 数据库会话
         :param order_id: 订单ID
         :param include_deleted: 是否包含软删除订单
