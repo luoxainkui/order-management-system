@@ -1,11 +1,5 @@
-# 传入业务
-from dao.order_dao import OrderDAO
-# 传入日志
-from core.logger import log_action
 # 传入逻辑
 from service.order_service import OrderService
-# 传入时间
-from datetime import datetime as dt 
 # 传入第三方库
 from fastapi import APIRouter,Depends,Query
 # 导入数据库会话类型
@@ -14,7 +8,7 @@ from sqlalchemy.orm import Session
 from core.db import get_db
 # 导入订单创建和更新的前端数据模型
 from schema.order_schema import OrderCreate,OrderUpdate
-
+# 导入登入用户ID
 from utils.common import get_current_user_id
 
 
@@ -74,17 +68,19 @@ def list_order(
 
 @router.post("/create",summary="创建订单")
 def create_order(
-    order_on = OrderCreate,
+    order_in: OrderCreate,
     db:Session = Depends(get_db),
     current_user_id: int = Depends(get_current_user_id)
 ) ->dict[str,any]:
     """
-    传入创建客户订单,返回给客户观看
+    创建订单接口
+    业务层会自动校验：价格范围、订单号是否重复、数据合法性
+    并绑定当前登录用户为订单所属人
     """
-    order = OrderService.create_order(db,order_on,current_user_id)
+    order = OrderService.create_order(db,order_in,current_user_id)
     return {
         "code":200,
-        "msg": "查询成功",
+        "msg": "创建成功",
         "data": order
     }
 
@@ -96,11 +92,80 @@ def update_order(
     current_user_id: int = Depends(get_current_user_id)
 ) ->dict[str,any]:
     """
-    传入客户修改订单
+    修改订单信息
+    校验：订单存在 + 属于当前用户 + 新数据合法（价格、订单号不重复等)
     """
-    update_order = OrderService.update_order(db.order_id,order_in,current_user_id)
+    updated_order = OrderService.update_order(db,order_id,order_in,current_user_id)
     return {
         "code": 200,
-        "msg": " 查询成功",
-        "dara": update_order
+        "msg": "修改成功",
+        "data": updated_order
+    }
+
+@router.delete("/{order_id}",summary="软删除订单")
+def delete_order(
+    order_id: int,
+    db:Session = Depends(get_db),
+    current_user_id: int = Depends(get_current_user_id)
+) ->dict[str,any]:
+    """
+    软删除订单（并非真删除，只是标记 is_delete=1
+    校验：订单存在 + 属于当前用户
+    删除后数据进入回收站，可恢复
+    """
+    OrderService.delete_order(db,order_id,current_user_id)
+    return {
+        "code": 200,
+        "msg": "删除成功",
+        "data": None
+    }
+
+@router.get("/deleted/list",summary="获取回收站订单列表")
+def deleted_order_list(
+    page_info: tuple[int,int] = Depends(page_params),
+    db: Session = Depends(get_db),
+    current_user_id: int = Depends(get_current_user_id)
+) ->dict[str,any]:
+    """
+    分页查询【回收站】里的订单（只查询已软删除的数据）
+    只能查看自己删除的订单
+    """
+    page,size = page_info
+    data = OrderService.deleted_list(db,page=page,size=size,current_user_id=current_user_id)
+    return {
+        "code": 200,
+        "msg": "查询回收站成功",
+        "data":data
+    }
+
+@router.post("/{order_id}/restore",summary="恢复订单")
+def restore_order(
+    order_id: int,
+    db: Session = Depends(get_db),
+    current_user_id: int = Depends(get_current_user_id)
+) ->dict[str,any]:
+    """
+    从回收站恢复订单（取消软删除标记）
+    """
+    OrderService.restore_order(db,order_id,current_user_id)
+    return {
+        "code": 200,
+        "msg": "恢复成功",
+        "data":None
+    }
+
+@router.delete("/{order_id}/hard",summary="永久删除订单")
+def hard_delete_order(
+    order_id: int,
+    db:Session = Depends(get_db),
+    current_user_id: int = Depends(get_current_user_id)
+) ->dict[str,any]:
+    """
+    永久删除订单（彻底从数据库删除，无法恢复）
+    """
+    OrderService.hard_delete_order(db,order_id,current_user_id)
+    return {
+        "code": 200,
+        "msg": "永久删除订单",
+        "data": None
     }

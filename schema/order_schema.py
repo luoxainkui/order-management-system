@@ -1,10 +1,11 @@
 from pydantic import BaseModel
 
+DEFAULT_PENDING_STATUS = "待支付"
 class OrderCreate(BaseModel):
     """创建订单请求模型"""
     order_no: str
     total_price: float
-    status: str | None = "待支付"
+    status: str | None = DEFAULT_PENDING_STATUS
     user_id: int | None = None
 
 class OrderUpdate(BaseModel):
