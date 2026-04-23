@@ -33,7 +33,7 @@ def get_order(
     order_id: int,
     db: Session = Depends(get_db),
     current_user_id: int = Depends(get_current_user_id)
-) ->dict[str,any]:
+) ->dict:
     """
     获取订单详情接口
     :param order_id: 订单ID
@@ -53,7 +53,7 @@ def list_order(
     page_info:tuple[int,int] = Depends(page_params),
     db:Session = Depends(get_db),
     current_user_id: int = Depends(get_current_user_id)
-) ->dict[str,any]:
+) ->dict:
     """
     分页查询当前用户的订单列表
     :权限: 只查自己订单
@@ -71,7 +71,7 @@ def create_order(
     order_in: OrderCreate,
     db:Session = Depends(get_db),
     current_user_id: int = Depends(get_current_user_id)
-) ->dict[str,any]:
+) ->dict:
     """
     创建订单接口
     业务层会自动校验：价格范围、订单号是否重复、数据合法性
@@ -90,7 +90,7 @@ def update_order(
     order_in: OrderUpdate,
     db:Session = Depends(get_db),
     current_user_id: int = Depends(get_current_user_id)
-) ->dict[str,any]:
+) ->dict:
     """
     修改订单信息
     校验：订单存在 + 属于当前用户 + 新数据合法（价格、订单号不重复等)
@@ -107,7 +107,7 @@ def delete_order(
     order_id: int,
     db:Session = Depends(get_db),
     current_user_id: int = Depends(get_current_user_id)
-) ->dict[str,any]:
+) ->dict:
     """
     软删除订单（并非真删除，只是标记 is_delete=1
     校验：订单存在 + 属于当前用户
@@ -125,7 +125,7 @@ def deleted_order_list(
     page_info: tuple[int,int] = Depends(page_params),
     db: Session = Depends(get_db),
     current_user_id: int = Depends(get_current_user_id)
-) ->dict[str,any]:
+) ->dict:
     """
     分页查询【回收站】里的订单（只查询已软删除的数据）
     只能查看自己删除的订单
@@ -143,7 +143,7 @@ def restore_order(
     order_id: int,
     db: Session = Depends(get_db),
     current_user_id: int = Depends(get_current_user_id)
-) ->dict[str,any]:
+) ->dict:
     """
     从回收站恢复订单（取消软删除标记）
     """
@@ -159,7 +159,7 @@ def hard_delete_order(
     order_id: int,
     db:Session = Depends(get_db),
     current_user_id: int = Depends(get_current_user_id)
-) ->dict[str,any]:
+) ->dict:
     """
     永久删除订单（彻底从数据库删除，无法恢复）
     """

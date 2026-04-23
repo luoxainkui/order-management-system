@@ -9,3 +9,11 @@ dist/
 build/
 *.egg-info/
 .DS_Store
+
+# 日志相关
+logs/
+*.log
+
+# 虚拟环境
+.venv/
+venv/
