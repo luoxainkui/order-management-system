@@ -28,7 +28,7 @@ from api import user_api, product_api, order_api, stock_api
 Base.metadata.create_all(bind=engine)
 
 # 记录系统启动日志
-logger.info('✅ FastAPI 订单管理系统 应用初始化完成')
+logger.info('FastAPI 订单管理系统 应用初始化完成')
 
 # 创建FastAPI应用实例，配置系统标题
 app = FastAPI(
@@ -72,7 +72,7 @@ def system_index():
 # ===================== 服务启动与端口监听 =====================
 if __name__ == "__main__":
     import uvicorn
-    logger.info("🚀 服务开始启动，监听端口：8000")
+    logger.info(" 服务开始启动,监听端口:8000")
 
     # 启动uvicorn服务
     uvicorn.run(
