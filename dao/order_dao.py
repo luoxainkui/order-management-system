@@ -77,10 +77,10 @@ class OrderDAO:
         order = db.query(Order).filter(Order.id == order_id, Order.is_delete == 0).first()
         if not order:
             return None
-        update_data = order_update.model_dump(exclude_unset=True)
-        if not update_data:
+        update_date = order_update.model_dump(exclude_unset=True)
+        if not update_date:
             return order
-        for key,value in update_data.items():
+        for key,value in update_date.items():
             setattr(order,key,value)
         db.commit() 
         db.refresh(order)
