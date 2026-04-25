@@ -12,7 +12,7 @@ class Product(Base):
     # 主键：自增ID，用于唯一标识，加速查询，非空
     id = Column(Integer,primary_key=True,index=True)
     # 商品名称，100字符，非空
-    name_id = Column(String(100),nullable=False)
+    name = Column(String(100),nullable=False)
     # 商品价格，整数，非空
     price = Column(Integer,nullable=False)
     # 商品数量，整数，默认0

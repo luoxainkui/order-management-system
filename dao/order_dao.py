@@ -87,20 +87,21 @@ class OrderDAO:
         return order
     
     @staticmethod
-    def delete_order(db:Session,order_id:int) ->bool:
+    def delete_order(db:Session,order_id:int) ->Order|None:
         """
         软删除,仅为标记
         :param db: 数据会话
-        :param order: 筛选id以及is_datete是否为false
-        :return 删除成功返回True不成功为False
+        :param order: 筛选id以及is_datete是否为None
+        :return 成功后返回order
         """
         order = db.query(Order).filter(Order.id == order_id,Order.is_delete == 0).first()
         if not order:
-            return False
+            return None
         order.is_delete = 1
         order.delete_time = dt.now()
         db.commit()
-        return True
+        db.refresh(order)
+        return order
     
     @staticmethod
     def deleted_list(db:Session,page: int = 1, size: int = 10, user_id: int | None = None) ->dict:
@@ -131,18 +132,19 @@ class OrderDAO:
         """
         恢复已删除的数据
         :param db: 数据会话
-        :param order: 筛选id以及is_delete是否为True
+        :param order: 筛选id
         :param order.is_delete: 恢复数据,取消删除标记
         :param delete_time: 清除时间
-        return 恢复成功返回True,订单不存在返回False
+        return 如果有返回order如果没有返回None
         """
         order = db.query(Order).filter(Order.id == order_id,Order.is_delete == 1).first()
         if not order:
-            return False
+            return None
         order.is_delete = 0
         order.delete_time = None
         db.commit()
-        return True
+        db.refresh(order)
+        return order
 
     @staticmethod
     def hard_order(db:Session,order_id:int) ->bool:
@@ -150,14 +152,14 @@ class OrderDAO:
         永久删除数据(不能恢复)
         :param db: 数据库会话
         :param order: 筛选id
-        :return: 等于则delete删除,不等于则False
+        :return: 等于则返回order,不等于则返回None空
         """
         order = db.query(Order).filter(Order.id == order_id).first()
         if not order:
-            return False
+            return None
         db.delete(order)
         db.commit()
-        return True
+        return order
     
     @staticmethod
     def query_by_order_no(db:Session,order_no:str) ->Order|None:
