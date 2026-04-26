@@ -1,4 +1,4 @@
-#      商品表
+#    商品表
 # 导入数据库基建，继承表
 from core.db import Base
 # 导入时间
@@ -24,4 +24,4 @@ class Product(Base):
     # 软删除类型
     is_delete_prod = Column(Integer,default=0)
     # 添加时间默认空值
-    delete_time = Column(Integer,nullable=True)
+    delete_time = Column(Integer,nullable=True)  

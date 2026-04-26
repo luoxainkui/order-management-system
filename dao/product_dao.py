@@ -7,6 +7,7 @@ from datetime import datetime as dt
 # 导入数据库
 from sqlalchemy.orm import Session
 
+from sqlalchemy import func
 
 class ProductDAO:
     """ 商品表业务 """
@@ -14,6 +15,7 @@ class ProductDAO:
     def query_product(db:Session,product_id:int,*,include_deleted:bool=False,only_deleted:bool=False) ->Product|None:
         """
         根据商品ID查询商品
+
         :param db: 数据库会话
         :param product_id: 商品ID
         :param include_deleted: 是否包含软删除商品
@@ -31,6 +33,7 @@ class ProductDAO:
     def list_product(db:Session,page: int = 1, size: int = 10, name: str | None = None) ->dict:
         """
         分页查询商品列表
+
         :param page: 第几页(默认第1页)
         :param size: 每页显示几条(默认10条)
         :param name: 可选的用户过滤
@@ -41,7 +44,7 @@ class ProductDAO:
         if name is not None:
             name = name.strip()
             if name:
-                query = query.filter(Product.name.like(f"%{name}%"))
+                query = query.filter(Product.name.contains(name))
         product_list = query.offset(skip).limit(size).all()
         total = query.count()
         total_pages = (total+size -1) //size
@@ -57,11 +60,12 @@ class ProductDAO:
     def create_product(db:Session,product_create:ProductCreate) ->Product:
         """
         创建商品
+
         :param product_create: 商品创建数据
         :return: 返回商品对象
         """
         data = product_create.model_dump()
-        data["created_time"] = dt.now()
+        data["created_at"] = dt.now()
         data["is_delete_prod"] = 0
         product = Product(**data)
         db.add(product)
@@ -73,9 +77,10 @@ class ProductDAO:
     def update_product(db:Session,product_id:int,product_update:ProductUpdate) ->Product|None:
         """
         根据ID更新商品信息
+
         :param db: 数据库会话
-        :param order_id: 商品ID
-        :param order_update: 更新数据
+        :param product_id: 商品ID
+        :param product_update: 更新数据
         :return: 更新后的商品对象,商品不存在返回 None
         """
         product =db.query(Product).filter(Product.id == product_id,Product.is_delete_prod == 0).first()
@@ -94,6 +99,7 @@ class ProductDAO:
     def delete_product(db:Session,product_id:int) ->Product|None:
         """
         软删除,仅为标记
+
         :param db: 数据会话
         :param product: 筛选id以及is_datete_prod是否为None
         :return 成功后返回product
@@ -101,8 +107,8 @@ class ProductDAO:
         product = db.query(Product).filter(Product.id == product_id,Product.is_delete_prod == 0).first()
         if not product:
             return None
-        Product.is_delete_prod = 1
-        Product.delete_time = dt.now()
+        product.is_delete_prod = 1
+        product.delete_time = dt.now()
         db.commit()
         db.refresh(product)
         return product
@@ -111,6 +117,7 @@ class ProductDAO:
     def deleted_list(db:Session,page:int = 1,size:int = 10,name: str |None = None) ->dict:
         """
         分页查询【回收站】的商品（只查已经软删除的商品）
+
         :param db: 数据库会话
         :param page: 当前第几页,默认第1页
         :param size: 每页显示多少条,默认10条
@@ -122,12 +129,12 @@ class ProductDAO:
         if name is not None:
             name = name.strip()
             if name:
-                query = query.filter(Product.name.like(f"%{name}%"))
+                query = query.filter(Product.name.contains(name))
         product_list = query.offset(skip).limit(size).all()
         total = query.count()
         total_pages = (total+size-1)//size
         return {
-            "list" : product_list, # 当前订单数据
+            "list" : product_list, # 当前商品数据
             "page" : page, # 当前页码
             "size" : size, # 每页多少条
             "total" : total, # 回收站总条数
@@ -138,6 +145,7 @@ class ProductDAO:
     def restore_product(db:Session,product_id:int) ->Product|None:
         """
         恢复已删除的数据
+
         :param db: 数据会话
         :param product: 筛选id
         :param product.is_delete: 恢复数据,取消删除标记
@@ -157,6 +165,7 @@ class ProductDAO:
     def hard_product(db:Session,product_id:int) ->Product|None:
         """
         永久删除数据(不能恢复)
+        
         :param db: 数据库会话
         :param product: 筛选id
         :return: 等于则返回product,不等于则返回None空

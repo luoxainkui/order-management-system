@@ -4,7 +4,7 @@ from sqlalchemy.orm import Session
 from schema.order_schema import OrderCreate,OrderUpdate
 from model.order_info import Order
 from core.logger import log_action
-from core.exception import OrderNotFoundException, AuthorizationException, ValidationException, BusinessException, DuplicateResourceException
+from core.exception import  ValidationException, BusinessException, NotFoundException,ForbiddenException
 
 class OrderService:
     """
@@ -13,24 +13,24 @@ class OrderService:
     @staticmethod
     def query_order(db:Session,order_id:int,current_user_id:int) ->None|Order:
         """
-        根据订单ID查询订单,并校验当前用户是否有权限访问。
+        根据订单ID查询订单,并校验当前用户是否有权限访问
 
         :param db: 数据库会话
         :param order_id: 订单ID
         :param current_user_id: 当前登录用户ID
-        :return: 订单对象，或抛出 OrderNotFoundException 或 AuthorizationException
+        :return: 订单对象，或抛出 NotFoundException 或 ForbiddenException
         """
         order = OrderDAO.query_order(db,order_id)
         if not order:
-            raise OrderNotFoundException()
+            raise NotFoundException("订单不存在")
         if order.user_id!=current_user_id:
-            raise AuthorizationException("无权限查看此订单")
+            raise ForbiddenException("无权限查看此订单")
         return order
 
     @staticmethod
     def query_list(db:Session,page: None, size: None, current_user_id: int | None = None) ->Order|dict:
         """
-        分页查询订单列表，用于页面展示。
+        分页查询订单列表，用于页面展示
 
         :param db: 数据库会话
         :param page: 页码(异常或空值时默认1)
@@ -52,7 +52,7 @@ class OrderService:
     @staticmethod
     def deleted_list(db:Session,page: None,size: None, current_user_id: int | None = None) ->Order|dict:
         """
-        分页查询已软删除订单，用于回收站页面展示。
+        分页查询已软删除订单，用于回收站页面展示
 
         :param db: 数据库会话
         :param page: 页码(异常或空值时默认1)
@@ -75,13 +75,13 @@ class OrderService:
     @log_action('创建订单')
     def create_order(db:Session,order_create:OrderCreate,current_user_id:int) ->Order|None:
         """
-        创建订单并执行必要校验：价格、订单号、用户权限和查重。
+        创建订单并执行必要校验：价格、订单号、用户权限和查重
 
         :param db: 数据库会话
         :param order_create: 前端传入的订单数据
         :param current_user_id: 当前登录用户ID
         :return: 创建成功的订单对象
-        :raises OrderNotFoundException, AuthorizationException, ValidationException, DuplicateResourceException: 价格、订单号不合法或订单已存在
+        :raises BusinessException,ValidationException: 价格、订单号不合法或订单已存在
         """
         create = order_create.model_dump()
         total_price = create.get("total_price",0)
@@ -94,7 +94,7 @@ class OrderService:
         
         exists = OrderDAO.query_by_order_no(db,order_no)
         if exists:
-            raise DuplicateResourceException("订单编号")
+            raise BusinessException("订单编号已存在")
 
         order_create.user_id = current_user_id
         return OrderDAO.create_order(db,order_create)
@@ -103,20 +103,20 @@ class OrderService:
     @log_action('修改订单')
     def update_order(db:Session,order_id:int,update_data:OrderUpdate,current_user_id:int)->Order:
         """
-        修改订单信息，并校验用户权限、价格范围和订单编号唯一性。
+        修改订单信息，并校验用户权限、价格范围和订单编号唯一性
 
         :param db: 数据库会话
         :param order_id: 要修改的订单ID
         :param update_data: 前端传入的更新字段
         :param current_user_id: 当前登录用户ID
         :return: 更新后的订单对象
-        :raises OrderNotFoundException, AuthorizationException, ValidationException, DuplicateResourceException: 权限不足、订单不存在、参数不合法
+        :raises NotFoundException,ForbiddenException,ValidationException: 权限不足、订单不存在、参数不合法
         """
         order = OrderDAO.query_order(db,order_id)
         if not order:
-            raise OrderNotFoundException()
+            raise NotFoundException("订单不存在")
         if order.user_id != current_user_id:
-            raise AuthorizationException("无权修改此订单")
+            raise ForbiddenException("无权修改此订单")
         
         update_fields = update_data.model_dump(exclude_unset=True, exclude={"user_id"})
         if not update_fields:
@@ -133,26 +133,26 @@ class OrderService:
                 raise ValidationException("订单编号不合法")
             exists = OrderDAO.query_by_order_no(db,order_no)
             if exists and exists.id != order_id:
-                raise DuplicateResourceException("订单编号")
+                raise BusinessException("订单编号已存在")
         return OrderDAO.update_order(db,order_id,update_data)
 
     @staticmethod
     @log_action('软删除订单')
     def delete_order(db:Session,order_id:int,current_user_id:int) -> bool:
         """
-        软删除订单，设置删除标记并记录删除时间。
+        软删除订单，设置删除标记并记录删除时间
 
         :param db: 数据库会话
         :param order_id: 要软删除的订单ID
         :param current_user_id: 当前登录用户ID
         :return: 删除成功返回 True
-        :raises OrderNotFoundException, AuthorizationException, BusinessException: 订单不存在或无权限删除
+        :raises NotFoundException, BusinessException: 订单不存在或无权限删除
         """
         order = OrderDAO.query_order(db,order_id)
         if not order:
-            raise OrderNotFoundException()
+            raise NotFoundException("订单不存在")
         if order.user_id != current_user_id:
-            raise AuthorizationException("无权删除此订单")
+            raise NotFoundException("无权删除此订单")
 
         success = OrderDAO.delete_order(db,order_id)
         if not success:
@@ -163,19 +163,19 @@ class OrderService:
     @log_action('恢复订单')
     def restore_order(db:Session,order_id:int,current_user_id:int) -> bool:
         """
-        恢复已软删除订单，取消删除标记。
+        恢复已软删除订单，取消删除标记
 
         :param db: 数据库会话
         :param order_id: 要恢复的订单ID
         :param current_user_id: 当前登录用户ID
         :return: 恢复成功返回 True
-        :raises OrderNotFoundException, AuthorizationException, BusinessException: 订单不存在、未删除或无权限恢复
+        :raises NotFoundException, ForbiddenException, BusinessException: 订单不存在、未删除或无权限恢复
         """
         order = OrderDAO.query_order(db, order_id, only_deleted=True)
         if not order:
-            raise OrderNotFoundException()
+            raise NotFoundException("订单不存在")
         if order.user_id != current_user_id:
-            raise AuthorizationException("无权恢复此订单")
+            raise ForbiddenException("无权恢复此订单")
 
         success = OrderDAO.restore_order(db,order_id)
         if not success:
@@ -186,19 +186,19 @@ class OrderService:
     @log_action('永久删除订单')
     def hard_delete_order(db:Session,order_id:int,current_user_id:int) -> bool:
         """
-        永久删除订单记录，彻底从数据库中移除。
+        永久删除订单记录，彻底从数据库中移除
 
         :param db: 数据库会话
         :param order_id: 要永久删除的订单ID
         :param current_user_id: 当前登录用户ID
         :return: 删除成功返回 True
-        :raises OrderNotFoundException, AuthorizationException, BusinessException: 订单不存在或无权限永久删除
+        :raises NotFoundException, ForbiddenException, BusinessException: 订单不存在或无权限永久删除
         """
         order = OrderDAO.query_order(db, order_id, include_deleted=True)
         if not order:
-            raise OrderNotFoundException()
+            raise NotFoundException("订单不存在")
         if order.user_id != current_user_id:
-            raise AuthorizationException("无权永久删除此订单")
+            raise ForbiddenException("无权永久删除此订单")
 
         success = OrderDAO.hard_order(db,order_id)
         if not success:

@@ -1,93 +1,48 @@
 """
-异常定义模块
-定义系统中使用的各种异常类
+统一全局异常
+按模块拆分订单/用户/商品单独异常，文案区分业务，结构
 """
 
-class OrderManagementException(Exception):
-    """订单管理系统基础异常类"""
-    def __init__(self, message: str = "系统异常", code: int = 500):
+class BusinessBaseException(Exception):
+    """全局自定义异常基类"""
+    def __init__(self, message: str, code: int = 400):
         self.message = message
         self.code = code
         super().__init__(self.message)
 
 
-class NotFoundException(OrderManagementException):
-    """资源未找到异常"""
-    def __init__(self, resource: str = "资源"):
-        message = f"{resource}未找到"
+# 通用细分异常（只按HTTP语义分，不按业务模块分）
+class NotFoundException(BusinessBaseException):
+    """资源不存在 404"""
+    def __init__(self, message: str = "资源不存在"):
         super().__init__(message, 404)
 
 
-class ValidationException(OrderManagementException):
-    """数据验证异常"""
-    def __init__(self, message: str = "数据验证失败"):
+class ValidationException(BusinessBaseException):
+    """参数校验失败 400"""
+    def __init__(self, message: str = "参数校验失败"):
         super().__init__(message, 400)
 
 
-class AuthenticationException(OrderManagementException):
-    """认证异常"""
-    def __init__(self, message: str = "认证失败"):
+class UnauthorizedException(BusinessBaseException):
+    """未登录认证 401"""
+    def __init__(self, message: str = "未授权，请登录"):
         super().__init__(message, 401)
 
 
-class AuthorizationException(OrderManagementException):
-    """授权异常"""
+class ForbiddenException(BusinessBaseException):
+    """权限不足 403"""
     def __init__(self, message: str = "权限不足"):
         super().__init__(message, 403)
 
 
-class BusinessException(OrderManagementException):
-    """业务逻辑异常"""
-    def __init__(self, message: str = "业务逻辑错误"):
+class BusinessException(BusinessBaseException):
+    """通用业务异常 422(重复、库存、状态错误、操作失败全走这个)"""
+    def __init__(self, message: str = "业务处理失败"):
         super().__init__(message, 422)
 
 
-class DatabaseException(OrderManagementException):
-    """数据库异常"""
-    def __init__(self, message: str = "数据库操作失败"):
+class DatabaseException(BusinessBaseException):
+    """数据库异常 500"""
+    def __init__(self, message: str = "数据库操作异常"):
         super().__init__(message, 500)
-
-
-class OrderNotFoundException(NotFoundException):
-    """订单未找到异常"""
-    def __init__(self):
-        super().__init__("订单")
-
-
-class ProductNotFoundException(NotFoundException):
-    """产品未找到异常"""
-    def __init__(self):
-        super().__init__("产品")
-
-
-class UserNotFoundException(NotFoundException):
-    """用户未找到异常"""
-    def __init__(self):
-        super().__init__("用户")
-
-
-class InsufficientStockException(BusinessException):
-    """库存不足异常"""
-    def __init__(self, product_name: str = "产品"):
-        message = f"{product_name}库存不足"
-        super().__init__(message)
-
-
-class InvalidOrderStatusException(BusinessException):
-    """无效订单状态异常"""
-    def __init__(self, status: str = "状态"):
-        message = f"无效的订单状态: {status}"
-        super().__init__(message)
-
-
-class DuplicateResourceException(BusinessException):
-    """重复资源异常"""
-    def __init__(self, resource: str = "资源"):
-        message = f"{resource}已存在"
-        super().__init__(message)
-
-
-class PaymentException(BusinessException):
-    """支付异常"""
-    def __init__(self, message: str = "支付失败"):
-        super().__init__(message)
