@@ -74,7 +74,7 @@ class ProductDAO:
         return product
 
     @staticmethod
-    def update_product(db:Session,product_id:int,product_update:ProductUpdate) ->Product|None:
+    def update_product(db:Session,product_id:int,update_data:dict) ->Product|None:
         """
         根据ID更新商品信息
 
@@ -86,9 +86,6 @@ class ProductDAO:
         product =db.query(Product).filter(Product.id == product_id,Product.is_delete_prod == 0).first()
         if not product:
             return None
-        update_data = product_update.model_dump(exclude_unset=True)
-        if not update_data:
-            return product
         for key,value in update_data.items():
             setattr(product,key,value)
         db.commit()

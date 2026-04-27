@@ -28,6 +28,7 @@ class OrderService:
         return order
 
     @staticmethod
+    @log_action("查询列表")
     def query_list(db:Session,page: None, size: None, current_user_id: int | None = None) ->Order|dict:
         """
         分页查询订单列表，用于页面展示
@@ -50,6 +51,7 @@ class OrderService:
             return {"list" : [],"page" : 1,"size" : 10,"total" : 0,"total_pages" : 0}
 
     @staticmethod
+    @log_action('查询已删除列表')
     def deleted_list(db:Session,page: None,size: None, current_user_id: int | None = None) ->Order|dict:
         """
         分页查询已软删除订单，用于回收站页面展示
