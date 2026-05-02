@@ -1,27 +1,24 @@
-#    商品表
-# 导入数据库基建，继承表
+"""
+商品模块 数据库Model
+====================
+一行一个字段
+"""
 from core.db import Base
-# 导入时间
 from datetime import datetime
-# 导入字段类型：列、整数、字符串,
-from sqlalchemy import Column,Integer,String,DateTime
+from sqlalchemy import Column, Integer, String, DateTime
 
 
 class Product(Base):
+    """商品表"""
     __tablename__ = "product"
-    # 主键：自增ID，用于唯一标识，加速查询，非空
-    id = Column(Integer,primary_key=True,index=True)
-    # 商品名称，100字符，非空
-    name = Column(String(100),nullable=False)
-    # 商品价格，整数，非空
-    price = Column(Integer,nullable=False)
-    # 商品数量，整数，默认0
-    stock = Column(Integer,default=0)
-    # 获取时间：存入数据库，请求系统时间now
-    created_at = Column(DateTime, default=datetime.now)
-    
 
-    # 软删除类型
-    is_delete_prod = Column(Integer,default=0)
-    # 添加时间默认空值
-    delete_time = Column(Integer,nullable=True)  
+    id          = Column(Integer, primary_key=True, index=True, comment="主键ID")
+    product_no  = Column(String(50), unique=True, index=True, nullable=False, comment="商品编号")
+    name        = Column(String(100), nullable=False, comment="商品名称")
+    price       = Column(Integer, nullable=False, comment="商品价格(分)")
+    stock       = Column(Integer, default=0, comment="库存数量")
+    
+    is_delete   = Column(Integer, default=0, comment="软删除标记")
+    created_at  = Column(DateTime, default=datetime.now, comment="创建时间")
+    updated_at  = Column(DateTime, default=datetime.now, onupdate=datetime.now, comment="更新时间")
+    delete_time = Column(DateTime, comment="删除时间")

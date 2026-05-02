@@ -1,20 +1,24 @@
-#     用户信息导入
-# 导入数据库基建，继承表
+"""
+用户模块 数据库Model
+====================
+一行一个字段
+"""
 from core.db import Base
-# 导入字段类型：列、整数、字符串
-from sqlalchemy import Column,Integer,String,DateTime 
-# 导入时间
-from datetime import datetime 
+from datetime import datetime
+from sqlalchemy import Column, Integer, String, DateTime
 
 
 class User(Base):
-    # 命名
+    """用户表"""
     __tablename__ = "user"
-    # 主键：自增ID，用于唯一标识，加速查询，非空
-    id = Column(Integer,primary_key=True,index=True)
-    # 用户名：最大50字符、唯一不重复、非空，用于用户登录标识
-    username = Column(String(50),unique=True,nullable=False)
-    # 密码：最大100字符，非空，储存加密后密码
-    password = Column(String(100),nullable=False)
-    #获取时间：存入数据库，请求系统时间now
-    created_at = Column(DateTime, default=datetime.now)
+
+    id          = Column(Integer, primary_key=True, index=True, comment="主键ID")
+    username    = Column(String(50), unique=True, index=True, nullable=False, comment="用户名")
+    password    = Column(String(255), nullable=False, comment="加密密码")
+    phone       = Column(String(20), comment="手机号")
+    email       = Column(String(100), comment="邮箱")
+    
+    is_delete   = Column(Integer, default=0, comment="软删除标记")
+    created_at  = Column(DateTime, default=datetime.now, comment="创建时间")
+    updated_at  = Column(DateTime, default=datetime.now, onupdate=datetime.now, comment="更新时间")
+    delete_time = Column(DateTime, comment="删除时间")

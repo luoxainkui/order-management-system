@@ -1,13 +1,49 @@
-from pydantic import BaseModel
+"""
+商品模块 Schema 请求参数校验
+============================
+Pydantic 校验规则定义
+"""
+from pydantic import BaseModel, Field
+from typing import Optional
+
+
+# ======================================================================
+# 创建商品参数
+# ======================================================================
 
 class ProductCreate(BaseModel):
-    product_no : str 
-    name : str
-    price : int
-    stock : int
+    product_no: str = Field(..., min_length=1, max_length=50, description="商品编号")
+    name: str = Field(..., min_length=1, max_length=100, description="商品名称")
+    price: int = Field(..., ge=0, description="商品价格, 单位: 分")
+    stock: int = Field(0, ge=0, description="库存数量")
     
+    model_config = {
+        "json_schema_extra": {
+            "example": {
+                "product_no": "P001",
+                "name": "测试商品",
+                "price": 9900,
+                "stock": 100
+            }
+        }
+    }
+
+
+# ======================================================================
+# 更新商品参数
+# ======================================================================
+
 class ProductUpdate(BaseModel):
-    product_no : str |None = None
-    name : str |None = None
-    price : int |None = None
-    stock : int |None = None
+    product_no: Optional[str] = Field(None, min_length=1, max_length=50, description="商品编号")
+    name: Optional[str] = Field(None, min_length=1, max_length=100, description="商品名称")
+    price: Optional[int] = Field(None, ge=0, description="商品价格, 单位: 分")
+    stock: Optional[int] = Field(None, ge=0, description="库存数量")
+    
+    model_config = {
+        "json_schema_extra": {
+            "example": {
+                "name": "修改后的商品名称",
+                "price": 19900
+            }
+        }
+    }

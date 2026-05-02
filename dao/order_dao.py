@@ -1,170 +1,121 @@
-# 导入数据库
-from sqlalchemy.orm import Session
-# 导入订单表
+"""
+订单模块 DAO 数据访问层
+======================
+SQLAlchemy ORM 原生查询
+
+和商品DAO的区别: 几乎所有查询都要带user_id过滤.
+这就是数据权限的底层实现.
+"""
 from model.order_info import Order
-# 导入前端传参
-from schema.order_schema import OrderCreate,OrderUpdate
-# 导入时间
-from datetime import datetime as dt
+from sqlalchemy.orm import Session
+from datetime import datetime
+from schema.order_schema import OrderCreate
+
 
 class OrderDAO:
+    """
+    订单数据库操作静态类
+    """
+
+    # ======================================================================
+    # 基础 CRUD 操作
+    # ======================================================================
+
     @staticmethod
-    def query_order(db:Session,order_id:int,*,include_deleted:bool=False,only_deleted:bool=False) ->Order|None:
-        """
-        根据订单ID查询订单
-        :param db: 数据库会话
-        :param order_id: 订单ID
-        :param include_deleted: 是否包含软删除订单
-        :param only_deleted: 仅查询软删除订单
-        :return: 订单实体,不存在则返回None
-        """
+    def create_order(db: Session, order_create: OrderCreate) -> Order:
+        db_order = Order(**order_create.model_dump())
+        db.add(db_order)
+        db.commit()
+        db.refresh(db_order)
+        return db_order
+
+    @staticmethod
+    def query_order(
+        db: Session,
+        order_id: int,
+        *,
+        include_deleted: bool = False,
+        only_deleted: bool = False
+    ) -> Order | None:
         query = db.query(Order).filter(Order.id == order_id)
         if only_deleted:
             query = query.filter(Order.is_delete == 1)
         elif not include_deleted:
             query = query.filter(Order.is_delete == 0)
         return query.first()
-    
+
     @staticmethod
-    def list_order(db:Session,page: int = 1, size: int = 10, user_id: int | None = None) ->dict:
-        """
-        分页查询订单列表
-        :param page: 第几页(默认第1页)
-        :param size: 每页显示几条(默认10条)
-        :param user_id: 可选的用户ID过滤
-        :return 字典(包含分页信息+当前页数据列表)
-        """
-        skip = (page-1)*size
-        query = db.query(Order).filter(Order.is_delete == 0)
-        if user_id is not None:
-            query = query.filter(Order.user_id == user_id)
-        order_list = query.offset(skip).limit(size).all()
+    def query_by_order_no(db: Session, order_no: str) -> Order | None:
+        return db.query(Order).filter(
+            Order.order_no == order_no,
+            Order.is_delete == 0
+        ).first()
+
+    @staticmethod
+    def list_order(db: Session, page: int, size: int, user_id: int) -> dict:
+        query = db.query(Order).filter(Order.is_delete == 0, Order.user_id == user_id)
+        
         total = query.count()
-        total_pages = (total+size -1) //size
+        total_pages = (total + size - 1) // size
+        items = query.offset((page - 1) * size).limit(size).all()
+        
         return {
-            "list" : order_list, # 当前页数据
-            "page" : page, # 当前页码
-            "size" : size, # 每页条数
-            "total" : total,  # 总条数
-            "total_pages" : total_pages #总页数
+            "list": items,
+            "page": page,
+            "size": size,
+            "total": total,
+            "total_pages": total_pages
         }
 
     @staticmethod
-    def create_order(db:Session,order_create:OrderCreate) ->Order:
-        """
-        创建订单
-        :param order_create: 订单创建数据
-        :return: 返回订单对象
-        """
-        date = order_create.model_dump()
-        date["created_at"] = dt.now()
-        date["is_delete"] = 0
-        order = Order(**date)
-        db.add(order)
+    def update_order(db: Session, order_id: int, update_data: dict) -> Order:
+        db.query(Order).filter(Order.id == order_id).update(update_data)
         db.commit()
-        db.refresh(order)
-        return order
-    
-    @staticmethod
-    def update_order(db:Session,order_id:int,order_update: OrderUpdate) ->Order|None:
-        """
-        根据ID更新订单信息
-        :param db: 数据库会话
-        :param order_id: 订单ID
-        :param order_update: 更新数据
-        :return: 更新后的订单对象，订单不存在返回 None
-        """
-        order = db.query(Order).filter(Order.id == order_id, Order.is_delete == 0).first()
-        if not order:
-            return None
-        update_date = order_update.model_dump(exclude_unset=True)
-        if not update_date:
-            return order
-        for key,value in update_date.items():
-            setattr(order,key,value)
-        db.commit() 
-        db.refresh(order)
-        return order
-    
-    @staticmethod
-    def delete_order(db:Session,order_id:int) ->Order|None:
-        """
-        软删除,仅为标记
-        :param db: 数据会话
-        :param order: 筛选id以及is_datete是否为None
-        :return 成功后返回order
-        """
-        order = db.query(Order).filter(Order.id == order_id,Order.is_delete == 0).first()
-        if not order:
-            return None
-        order.is_delete = 1
-        order.delete_time = dt.now()
-        db.commit()
-        db.refresh(order)
-        return order
-    
-    @staticmethod
-    def deleted_list(db:Session,page: int = 1, size: int = 10, user_id: int | None = None) ->dict:
-        """
-        分页查询【回收站】的订单（只查已经软删除的订单）
-        :param db: 数据库会话
-        :param page: 当前第几页,默认第1页
-        :param size: 每页显示多少条,默认10条
-        :param user_id: 可选的用户ID过滤
-        :return: 分页数据（列表+页码+总数+总页数）
-        """
-        skip = (page-1)*size
-        query = db.query(Order).filter(Order.is_delete == 1)
-        if user_id is not None:
-            query = query.filter(Order.user_id == user_id)
-        order_list = query.offset(skip).limit(size).all()
-        total = query.count()
-        total_pages = (total+size-1)//size
-        return {
-            "list" : order_list, # 当前订单数据
-            "page" : page, # 当前页码
-            "size" : size, # 每页多少条
-            "total" : total, # 回收站总条数
-            "total_pages" : total_pages # 一共多少页
-        }
-    @staticmethod
-    def restore_order(db:Session,order_id:int) ->bool:
-        """
-        恢复已删除的数据
-        :param db: 数据会话
-        :param order: 筛选id
-        :param order.is_delete: 恢复数据,取消删除标记
-        :param delete_time: 清除时间
-        return 如果有返回order如果没有返回None
-        """
-        order = db.query(Order).filter(Order.id == order_id,Order.is_delete == 1).first()
-        if not order:
-            return None
-        order.is_delete = 0
-        order.delete_time = None
-        db.commit()
-        db.refresh(order)
-        return order
+        return OrderDAO.query_order(db, order_id)
 
     @staticmethod
-    def hard_order(db:Session,order_id:int) ->bool:
-        """
-        永久删除数据(不能恢复)
-        :param db: 数据库会话
-        :param order: 筛选id
-        :return: 等于则返回order,不等于则返回None空
-        """
-        order = db.query(Order).filter(Order.id == order_id).first()
-        if not order:
-            return None
-        db.delete(order)
+    def delete_order(db: Session, order_id: int) -> bool:
+        update_data = {"is_delete": 1, "delete_time": datetime.now()}
+        db.query(Order).filter(Order.id == order_id).update(update_data)
         db.commit()
-        return order
-    
+        return True
+
+    # ======================================================================
+    # 回收站相关操作
+    # ======================================================================
+
     @staticmethod
-    def query_by_order_no(db:Session,order_no:str) ->Order|None:
-        """
-        查重数据
-        :return: 只查重未删除的
-        """
-        return db.query(Order).filter(Order.order_no == order_no,Order.is_delete == 0).first()
+    def query_deleted_order(db: Session, order_id: int) -> Order | None:
+        return db.query(Order).filter(
+            Order.id == order_id,
+            Order.is_delete == 1
+        ).first()
+
+    @staticmethod
+    def deleted_list(db: Session, page: int, size: int, user_id: int) -> dict:
+        query = db.query(Order).filter(Order.is_delete == 1, Order.user_id == user_id)
+        
+        total = query.count()
+        total_pages = (total + size - 1) // size
+        items = query.offset((page - 1) * size).limit(size).all()
+        
+        return {
+            "list": items,
+            "page": page,
+            "size": size,
+            "total": total,
+            "total_pages": total_pages
+        }
+
+    @staticmethod
+    def restore_order(db: Session, order_id: int) -> bool:
+        update_data = {"is_delete": 0, "delete_time": None}
+        db.query(Order).filter(Order.id == order_id).update(update_data)
+        db.commit()
+        return True
+
+    @staticmethod
+    def hard_delete_order(db: Session, order_id: int) -> bool:
+        db.query(Order).filter(Order.id == order_id).delete()
+        db.commit()
+        return True

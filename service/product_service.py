@@ -1,191 +1,214 @@
-# 导入商品业务
+"""
+商品模块 业务逻辑层
+===================
+整个系统最体现功力的地方
+
+这里是真正的防御式编程训练场
+能想到的边界情况都在这里校验
+
+【核心设计】: 校验执行顺序 - 从快到慢
+  1. 非空校验 (内存操作, 最快)
+  2. 长度/格式校验 (内存操作)
+  3. 唯一性校验 (查数据库, 最慢)
+  
+这就是细节上的性能优化!
+"""
 from dao.product_dao import ProductDAO
-# 导入数据会话
 from sqlalchemy.orm import Session
-# 导入前段传参
-from schema.product_schema import ProductCreate,ProductUpdate
-# 导入模型
+from schema.product_schema import ProductCreate, ProductUpdate
 from model.product import Product
-# 导入日志
 from core.logger import log_action
-# 导入异常
-from core.exception import ValidationException,NotFoundException,BusinessException
+from core.exception import ValidationException,BusinessException,NotFoundException
+
 
 class ProductService:
-    """ 商品逻辑层"""
-    @staticmethod
-    def query_product(db:Session,product_id:int) ->Product:
-        """
-        根据商品ID查询商品,并校验当前用户是否有权限访问
+    """
+    商品业务逻辑静态类
+    
+    所有方法都是无状态的
+    接收db作为第一个参数
+    """
 
-        :param db: 数据库会话
-        :param product_id: 订单ID
-        :return: 商品对象,或抛出 NotFoundException
+    # ======================================================================
+    # 基础 CRUD 方法
+    # ======================================================================
+
+    @staticmethod
+    @log_action("创建商品")
+    def create_product(db: Session, product_create: ProductCreate) -> Product:
         """
-        product = ProductDAO.query_product(db,product_id)
+        创建商品 - 最完整的业务校验链
+        """
+        product_no = product_create.product_no.strip()
+        if not product_no:
+            raise ValidationException("商品编号不能为空")
+        if len(product_no) > 50:
+            raise ValidationException("商品编号不能超过50个字符")
+        
+        exists_no = ProductDAO.query_no_product(db, product_no)
+        if exists_no:
+            raise BusinessException("商品编号已存在")
+        
+        name = product_create.name.strip()
+        if not name:
+            raise ValidationException("商品名称不能为空")
+        if len(name) > 100:
+            raise ValidationException("商品名称不能超过100个字符")
+        
+        exists_name = ProductDAO.query_name_product(db, name)
+        if exists_name:
+            raise BusinessException("商品名称已存在")
+        
+        if product_create.price < 0:
+            raise ValidationException("商品价格不能小于0")
+        
+        if product_create.stock < 0:
+            raise ValidationException("商品库存不能小于0")
+        
+        return ProductDAO.create_product(db, product_create)
+
+    @staticmethod
+    @log_action("查询商品")
+    def query_product(db: Session, product_id: int) -> Product:
+        """
+        查询单个商品
+        
+        这里没权限, 所有人都能看商品
+        但还是要判断存在性, 给个友好的提示
+        """
+        product = ProductDAO.query_product(db, product_id)
         if not product:
             raise NotFoundException("商品不存在")
         return product
-    
+
     @staticmethod
     @log_action("查询商品列表")
-    def query_list(db:Session,page: None,size: None) ->dict:
+    def query_list(
+        db: Session,
+        page: None | str | int,
+        size: None | str | int,
+        name: str | None = None
+    ) -> dict:
         """
-        分页查询商品列表,用于页面展示
-
-        :param db: 数据库会话
-        :param page: 页码(异常或空值时默认1)
-        :param size: 每页条数(异常或空值时默认10)
-        :return: 包含分页信息的字典
-        """
-        try:
-            page = int(page) if page not in (None,"") else 1
-            size = int(size) if size not in (None,"") else 10
-
-            page = max(page,1)
-            size = min(size,100)
-
-            return ProductDAO.list_product(db,page=page,size=size)
-        except Exception:
-            return {"list" : [],"page" : 1,"size" : 10,"total" : 0,"total_pages" : 0}
-        
-    @staticmethod
-    @log_action("查询已删除商品列表")
-    def deleted_list(db:Session,page:None,size:None) ->dict:
-        """
-        分页查询已软删除商品,用于回收站页面展示
-
-        :param db: 数据库会话
-        :param page: 页码(异常或空值时默认1)
-        :param size: 每页条数(异常或空值时默认10)
-        :return: 包含回收站分页数据的字典
+        分页查询商品列表, 带参数容错
         """
         try:
-            page = int(page) if page not in (None,"") else 1
-            size = int(size) if size not in (None,"") else 10
-
-            page = max(page,1)
-            size = min(size,10)
-
-            return ProductDAO.deleted_list(db,page=page,size=size)
+            page = int(page) if page not in (None, "") else 1
+            size = int(size) if size not in (None, "") else 10
+            
+            page = max(page, 1)
+            size = min(size, 100)
+            
+            return ProductDAO.list_product(db, page=page, size=size, name=name)
         except Exception:
-            return {"list" : [],"page" : 1,"size" : 10,"total" : 0,"total_pages" : 0}
-        
-    @staticmethod
-    @log_action("创建商品")
-    def create_product(db:Session,product_create:ProductCreate) ->Product:
-        """
-        创建商品并执行校验：名称非空、长度限制、名称查重、价格校验、库存校验
+            return {
+                "list": [],
+                "page": 1,
+                "size": 10,
+                "total": 0,
+                "total_pages": 0
+            }
 
-        :param db: 数据库会话
-        :param product_create: 前端传入的商品数据
-        :return: 创建成功的商品对象
-        :raises ValidationException: 字段不合法、为空、长度超限、数值小于0
-        :raises BusinessException: 商品名称已存在
+    @staticmethod
+    @log_action("更新商品")
+    def update_product(
+        db: Session,
+        product_id: int,
+        product_update: ProductUpdate
+    ) -> Product:
         """
-        name = product_create.name.strip()
-        if not name:
-            raise ValidationException("商品名称不为空")
-        if len(name)>100:
-            raise ValidationException("商品名称字符大于100!")
+        更新商品信息
         
-        exists = ProductDAO.query_name_product(db,name)
-        if exists:
-            raise BusinessException("商品名称已经存在")
+        重要细节: 改名称/编号时要排除自己, 不然会误报"已存在"
+        """
+        product = ProductService.query_product(db, product_id)
+        update_data = product_update.model_dump(exclude_unset=True)
         
-        price = product_create.price
-        if not isinstance(price,int) or price<0:
+        if "product_no" in update_data:
+            product_no = str(update_data["product_no"]).strip()
+            exists = ProductDAO.query_no_product(db, product_no)
+            if exists and exists.id != product_id:
+                raise BusinessException("商品编号已存在")
+        
+        if "name" in update_data:
+            name = str(update_data["name"]).strip()
+            exists = ProductDAO.query_name_product(db, name)
+            if exists and exists.id != product_id:
+                raise BusinessException("商品名称已存在")
+        
+        if "price" in update_data and update_data["price"] < 0:
             raise ValidationException("商品价格不能小于0")
         
-        stock = product_create.stock
-        if stock<0:
+        if "stock" in update_data and update_data["stock"] < 0:
             raise ValidationException("商品库存不能小于0")
         
-        return  ProductDAO.create_product(db,product_create)
-    
-    @staticmethod
-    @log_action("修改商品")
-    def update_product(db:Session,product_id:int,update_data:ProductUpdate) ->Product:
-        """
-        修改商品信息,校验商品是否存在、字段合法性、名称查重、空字段判断
-    
-        :param db: 数据库会话
-        :param product_id: 要修改的商品ID
-        :param update_data: 前端传入的更新数据
-        :return: 更新后的商品对象
-        :raises NotFoundException: 商品不存在
-        :raises ValidationException: 字段不合法|无更新字段
-        :raises BusinessException: 商品名称重复
-        """
-        product = ProductDAO.query_product(db,product_id)
-        if not product:
-            raise NotFoundException("商品不存在")
-        
-        data = update_data.model_dump(exclude_unset=True)
-        if  not data:
-            raise ValidationException("没有可更新的字段")
-        
-        if "name" in data:
-            name = data["name"]
-            if name is not None:
-                name = name.strip()
-            if not name:
-                raise ValidationException("商品名称不能为空")
-            if len(name)>100:
-                raise ValidationException("商品名称字符大于100!")
-            
-            exists = ProductDAO.query_name_product(db,name)
-            if exists and exists.id != product_id:
-                raise BusinessException("商品名称已经存在")
-            
-        if "price" in data:
-            price = data['price']
-            if not isinstance(price,int) or price<0:
-                raise ValidationException("商品价格必须为整数且不能小于0")
-
-        if "stock" in data:
-            stock = data['stock']
-            if stock < 0:
-                raise ValidationException("商品库存不能小于0")
-        return ProductDAO.update_product(db,product_id,data)
+        return ProductDAO.update_product(db, product_id, update_data)
 
     @staticmethod
-    @log_action("软删除商品")
-    def delete_product(db:Session,product_id:int) ->bool:
+    @log_action("删除商品")
+    def delete_product(db: Session, product_id: int) -> bool:
         """
-        软删除商品（不会真删除，只标记删除状态）
-        :param db: 数据库会话
-        :param product_id: 商品ID
-        :return: 删除成功返回 True
-        :raises NotFoundException: 商品不存在
-        :raises BusinessException: 删除失败
+        软删除商品
+        
+        注意: 只是标记删除状态, 不会真删除记录
         """
-        product = ProductDAO.query_product(db,product_id)
-        if not product:
-            raise NotFoundException("商品不存在")
+        ProductService.query_product(db, product_id)
+        return ProductDAO.delete_product(db, product_id)
 
-        success = ProductDAO.delete_product(db,product_id)
-        if not success:
-            raise BusinessException("删除失败")
+    # ======================================================================
+    # 回收站相关方法
+    # ======================================================================
 
-        return True
+    @staticmethod
+    @log_action("查询回收站列表")
+    def deleted_list(
+        db: Session,
+        page: None | str | int,
+        size: None | str | int,
+        name: str | None = None
+    ) -> dict:
+        """
+        查询回收站商品列表
+        """
+        try:
+            page = int(page) if page not in (None, "") else 1
+            size = int(size) if size not in (None, "") else 10
+            
+            page = max(page, 1)
+            size = min(size, 100)
+            
+            return ProductDAO.deleted_list(db, page=page, size=size, name=name)
+        except Exception:
+            return {
+                "list": [],
+                "page": 1,
+                "size": 10,
+                "total": 0,
+                "total_pages": 0
+            }
 
     @staticmethod
     @log_action("恢复商品")
-    def restore_prouct(db:Session,product_id:int):
-        product = 
+    def restore_product(db: Session, product_id: int) -> bool:
+        """
+        从回收站恢复商品
+        """
+        product = ProductDAO.query_deleted_product(db, product_id)
+        if not product:
+            raise NotFoundException("回收站中不存在该商品")
+        
+        return ProductDAO.restore_product(db, product_id)
 
-
-
-
-
-
-
-
-
-
-
-
-
-
-
+    @staticmethod
+    @log_action("永久删除商品")
+    def hard_delete_product(db: Session, product_id: int) -> bool:
+        """
+        永久删除商品 (不可逆!)
+        
+        安全机制: 只能删除【已经在回收站】的商品
+        """
+        product = ProductDAO.query_deleted_product(db, product_id)
+        if not product:
+            raise BusinessException("只能永久删除回收站中的商品")
+        
+        return ProductDAO.hard_delete_product(db, product_id)

@@ -1,182 +1,123 @@
-# 导入模型商品表
-from model.product import Product
-# 导入前端传参数据
-from schema.product_schema import ProductCreate,ProductUpdate
-# 导入时间
-from datetime import datetime as dt
-# 导入数据库
-from sqlalchemy.orm import Session
+"""
+商品模块 DAO 数据访问层
+======================
+SQLAlchemy ORM 原生查询
 
-from sqlalchemy import func
+设计原则: SQL,不做任何业务判断!
+"""
+from model.product import Product
+from sqlalchemy.orm import Session
+from datetime import datetime
+from schema.product_schema import ProductCreate
+
 
 class ProductDAO:
-    """ 商品表业务 """
-    @staticmethod
-    def query_product(db:Session,product_id:int,*,include_deleted:bool=False,only_deleted:bool=False) ->Product|None:
-        """
-        根据商品ID查询商品
+    """
+    商品数据库操作静态类
+    """
 
-        :param db: 数据库会话
-        :param product_id: 商品ID
-        :param include_deleted: 是否包含软删除商品
-        :param only_deleted: 仅查询软删除商品
-        :return: 商品实体,不存在则返回None
-        """
+    # ======================================================================
+    # 基础 CRUD 操作
+    # ======================================================================
+
+    @staticmethod
+    def create_product(db: Session, product_create: ProductCreate) -> Product:
+        db_product = Product(**product_create.model_dump())
+        db.add(db_product)
+        db.commit()
+        db.refresh(db_product)
+        return db_product
+
+    @staticmethod
+    def query_product(db: Session, product_id: int, *, include_deleted: bool = False) -> Product | None:
         query = db.query(Product).filter(Product.id == product_id)
-        if only_deleted:
-            query = query.filter(Product.is_delete_prod == 1)
-        elif not include_deleted:
+        if not include_deleted:
             query = query.filter(Product.is_delete_prod == 0)
         return query.first()
-    
-    @staticmethod
-    def list_product(db:Session,page: int = 1, size: int = 10, name: str | None = None) ->dict:
-        """
-        分页查询商品列表
-
-        :param page: 第几页(默认第1页)
-        :param size: 每页显示几条(默认10条)
-        :param name: 可选的用户过滤
-        :return 字典(包含分页信息+当前页数据列表)
-        """
-        skip = (page-1)*size
-        query = db.query(Product).filter(Product.is_delete_prod ==0)
-        if name is not None:
-            name = name.strip()
-            if name:
-                query = query.filter(Product.name.contains(name))
-        product_list = query.offset(skip).limit(size).all()
-        total = query.count()
-        total_pages = (total+size -1) //size
-        return {
-            "list" : product_list, # 当前页数据
-            "page" : page, # 当前页码
-            "size" : size, # 每页条数
-            "total" : total,  # 总条数
-            "total_pages" : total_pages #总页数
-        }
 
     @staticmethod
-    def create_product(db:Session,product_create:ProductCreate) ->Product:
-        """
-        创建商品
-
-        :param product_create: 商品创建数据
-        :return: 返回商品对象
-        """
-        data = product_create.model_dump()
-        data["created_at"] = dt.now()
-        data["is_delete_prod"] = 0
-        product = Product(**data)
-        db.add(product)
-        db.commit()
-        db.refresh(product)
-        return product
+    def query_no_product(db: Session, product_no: str) -> Product | None:
+        return db.query(Product).filter(
+            Product.product_no == product_no,
+            Product.is_delete_prod == 0
+        ).first()
 
     @staticmethod
-    def update_product(db:Session,product_id:int,update_data:dict) ->Product|None:
-        """
-        根据ID更新商品信息
-
-        :param db: 数据库会话
-        :param product_id: 商品ID
-        :param product_update: 更新数据
-        :return: 更新后的商品对象,商品不存在返回 None
-        """
-        product =db.query(Product).filter(Product.id == product_id,Product.is_delete_prod == 0).first()
-        if not product:
-            return None
-        for key,value in update_data.items():
-            setattr(product,key,value)
-        db.commit()
-        db.refresh(product)
-        return product
-    
-    @staticmethod
-    def delete_product(db:Session,product_id:int) ->Product|None:
-        """
-        软删除,仅为标记
-
-        :param db: 数据会话
-        :param product: 筛选id以及is_datete_prod是否为None
-        :return 成功后返回product
-        """
-        product = db.query(Product).filter(Product.id == product_id,Product.is_delete_prod == 0).first()
-        if not product:
-            return None
-        product.is_delete_prod = 1
-        product.delete_time = dt.now()
-        db.commit()
-        db.refresh(product)
-        return product
+    def query_name_product(db: Session, name: str) -> Product | None:
+        return db.query(Product).filter(
+            Product.name == name,
+            Product.is_delete_prod == 0
+        ).first()
 
     @staticmethod
-    def deleted_list(db:Session,page:int = 1,size:int = 10,name: str |None = None) ->dict:
-        """
-        分页查询【回收站】的商品（只查已经软删除的商品）
-
-        :param db: 数据库会话
-        :param page: 当前第几页,默认第1页
-        :param size: 每页显示多少条,默认10条
-        :param name: 可选的商品过滤
-        :return: 分页数据（列表+页码+总数+总页数）
-        """
-        skip = (page-1)*size
-        query = db.query(Product).filter(Product.is_delete_prod == 1)
-        if name is not None:
-            name = name.strip()
-            if name:
-                query = query.filter(Product.name.contains(name))
-        product_list = query.offset(skip).limit(size).all()
-        total = query.count()
-        total_pages = (total+size-1)//size
-        return {
-            "list" : product_list, # 当前商品数据
-            "page" : page, # 当前页码
-            "size" : size, # 每页多少条
-            "total" : total, # 回收站总条数
-            "total_pages" : total_pages # 一共多少页
-        }
-    
-    @staticmethod
-    def restore_product(db:Session,product_id:int) ->Product|None:
-        """
-        恢复已删除的数据
-
-        :param db: 数据会话
-        :param product: 筛选id
-        :param product.is_delete: 恢复数据,取消删除标记
-        :param delete_time: 清除时间
-        return 如果有返回product如果没有返回None
-        """
-        product = db.query(Product).filter(Product.id == product_id,Product.is_delete_prod == 1).first()
-        if not product:
-            return None
-        product.is_delete_prod = 0
-        product.delete_time = None
-        db.commit()
-        db.refresh(product)
-        return product
-    
-    @staticmethod
-    def hard_product(db:Session,product_id:int) ->Product|None:
-        """
-        永久删除数据(不能恢复)
+    def list_product(db: Session, page: int, size: int, name: str | None = None) -> dict:
+        query = db.query(Product).filter(Product.is_delete_prod == 0)
+        if name:
+            query = query.filter(Product.name.contains(name))
         
-        :param db: 数据库会话
-        :param product: 筛选id
-        :return: 等于则返回product,不等于则返回None空
-        """
-        product = db.query(Product).filter(Product.id == product_id).first()
-        if not product:
-            return None
-        db.delete(product)
-        db.commit()
-        return product
-    
+        total = query.count()
+        total_pages = (total + size - 1) // size
+        items = query.offset((page - 1) * size).limit(size).all()
+        
+        return {
+            "list": items,
+            "page": page,
+            "size": size,
+            "total": total,
+            "total_pages": total_pages
+        }
+
     @staticmethod
-    def query_name_product(db:Session,name:str) ->Product|None:
-        """
-        根据商品名称查重（仅未删除数据）
-        """
-        return db.query(Product).filter(Product.name == name,Product.is_delete_prod == 0).first()
+    def update_product(db: Session, product_id: int, update_data: dict) -> Product:
+        db.query(Product).filter(Product.id == product_id).update(update_data)
+        db.commit()
+        return ProductDAO.query_product(db, product_id)
+
+    @staticmethod
+    def delete_product(db: Session, product_id: int) -> bool:
+        update_data = {"is_delete_prod": 1, "delete_time": datetime.now()}
+        db.query(Product).filter(Product.id == product_id).update(update_data)
+        db.commit()
+        return True
+
+    # ======================================================================
+    # 回收站相关操作
+    # ======================================================================
+
+    @staticmethod
+    def query_deleted_product(db: Session, product_id: int) -> Product | None:
+        return db.query(Product).filter(
+            Product.id == product_id,
+            Product.is_delete_prod == 1
+        ).first()
+
+    @staticmethod
+    def deleted_list(db: Session, page: int, size: int, name: str | None = None) -> dict:
+        query = db.query(Product).filter(Product.is_delete_prod == 1)
+        if name:
+            query = query.filter(Product.name.contains(name))
+        
+        total = query.count()
+        total_pages = (total + size - 1) // size
+        items = query.offset((page - 1) * size).limit(size).all()
+        
+        return {
+            "list": items,
+            "page": page,
+            "size": size,
+            "total": total,
+            "total_pages": total_pages
+        }
+
+    @staticmethod
+    def restore_product(db: Session, product_id: int) -> bool:
+        update_data = {"is_delete_prod": 0, "delete_time": None}
+        db.query(Product).filter(Product.id == product_id).update(update_data)
+        db.commit()
+        return True
+
+    @staticmethod
+    def hard_delete_product(db: Session, product_id: int) -> bool:
+        db.query(Product).filter(Product.id == product_id).delete()
+        db.commit()
+        return True
