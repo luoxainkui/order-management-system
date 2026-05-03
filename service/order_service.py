@@ -16,6 +16,7 @@ from schema.order_schema import OrderCreate, OrderUpdate
 from model.order_info import Order
 from core.logger import log_action
 from core.exception import ValidationException,BusinessException,NotFoundException,ForbiddenException
+from utils.snowflake import snowflake
 
 
 
@@ -53,13 +54,17 @@ class OrderService:
         if not isinstance(total_price, int) or total_price < 0 or total_price > 999999:
             raise ValidationException("价格必须在0~999999之间")
         
+        # 订单编号: 不传则自动生成 (雪花算法)
         order_no = str(data.get("order_no", "")).strip()
-        if not order_no or len(order_no) > 50:
+        if not order_no:
+            order_no = snowflake.next_order_no()
+        elif len(order_no) > 50:
             raise ValidationException("订单编号必须在1~50个字符之间")
         
         exists = OrderDAO.query_by_order_no(db, order_no)
         if exists:
             raise BusinessException("订单编号已存在")
+        data["order_no"] = order_no
         
         status = data.get("status", DEFAULT_PENDING_STATUS)
         if status not in VALID_STATUS:

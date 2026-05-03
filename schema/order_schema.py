@@ -18,7 +18,7 @@ DEFAULT_PENDING_STATUS = "待支付"
 # ======================================================================
 
 class OrderCreate(BaseModel):
-    order_no: str = Field(..., min_length=1, max_length=50, description="订单编号")
+    order_no: Optional[str] = Field(None, min_length=1, max_length=50, description="订单编号(不传则自动生成)")
     total_price: int = Field(..., ge=0, le=999999, description="订单总金额, 单位: 分")
     status: str = Field(DEFAULT_PENDING_STATUS, min_length=1, max_length=20, description="订单状态")
     
@@ -38,9 +38,10 @@ class OrderCreate(BaseModel):
 # ======================================================================
 
 class OrderUpdate(BaseModel):
+    order_no: Optional[str] = Field(None, min_length=1, max_length=50, description="订单编号")
     total_price: Optional[int] = Field(None, ge=0, le=999999, description="订单总金额, 单位: 分")
     status: Optional[str] = Field(None, min_length=1, max_length=20, description="订单状态")
-    
+
     model_config = {
         "json_schema_extra": {
             "example": {

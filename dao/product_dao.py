@@ -32,26 +32,26 @@ class ProductDAO:
     def query_product(db: Session, product_id: int, *, include_deleted: bool = False) -> Product | None:
         query = db.query(Product).filter(Product.id == product_id)
         if not include_deleted:
-            query = query.filter(Product.is_delete_prod == 0)
+            query = query.filter(Product.is_delete == 0)
         return query.first()
 
     @staticmethod
     def query_no_product(db: Session, product_no: str) -> Product | None:
         return db.query(Product).filter(
             Product.product_no == product_no,
-            Product.is_delete_prod == 0
+            Product.is_delete == 0
         ).first()
 
     @staticmethod
     def query_name_product(db: Session, name: str) -> Product | None:
         return db.query(Product).filter(
             Product.name == name,
-            Product.is_delete_prod == 0
+            Product.is_delete == 0
         ).first()
 
     @staticmethod
     def list_product(db: Session, page: int, size: int, name: str | None = None) -> dict:
-        query = db.query(Product).filter(Product.is_delete_prod == 0)
+        query = db.query(Product).filter(Product.is_delete == 0)
         if name:
             query = query.filter(Product.name.contains(name))
         
@@ -75,7 +75,7 @@ class ProductDAO:
 
     @staticmethod
     def delete_product(db: Session, product_id: int) -> bool:
-        update_data = {"is_delete_prod": 1, "delete_time": datetime.now()}
+        update_data = {"is_delete": 1, "delete_time": datetime.now()}
         db.query(Product).filter(Product.id == product_id).update(update_data)
         db.commit()
         return True
@@ -88,12 +88,12 @@ class ProductDAO:
     def query_deleted_product(db: Session, product_id: int) -> Product | None:
         return db.query(Product).filter(
             Product.id == product_id,
-            Product.is_delete_prod == 1
+            Product.is_delete == 1
         ).first()
 
     @staticmethod
     def deleted_list(db: Session, page: int, size: int, name: str | None = None) -> dict:
-        query = db.query(Product).filter(Product.is_delete_prod == 1)
+        query = db.query(Product).filter(Product.is_delete == 1)
         if name:
             query = query.filter(Product.name.contains(name))
         
@@ -111,7 +111,7 @@ class ProductDAO:
 
     @staticmethod
     def restore_product(db: Session, product_id: int) -> bool:
-        update_data = {"is_delete_prod": 0, "delete_time": None}
+        update_data = {"is_delete": 0, "delete_time": None}
         db.query(Product).filter(Product.id == product_id).update(update_data)
         db.commit()
         return True

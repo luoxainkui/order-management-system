@@ -19,6 +19,7 @@ from schema.product_schema import ProductCreate, ProductUpdate
 from model.product import Product
 from core.logger import log_action
 from core.exception import ValidationException,BusinessException,NotFoundException
+from utils.snowflake import snowflake
 
 
 class ProductService:
@@ -39,15 +40,21 @@ class ProductService:
         """
         创建商品 - 最完整的业务校验链
         """
-        product_no = product_create.product_no.strip()
-        if not product_no:
-            raise ValidationException("商品编号不能为空")
-        if len(product_no) > 50:
-            raise ValidationException("商品编号不能超过50个字符")
+        # 商品编号: 不传则自动生成 (雪花算法)
+        raw_no = product_create.product_no
+        if raw_no:
+            product_no = str(raw_no).strip()
+        else:
+            product_no = snowflake.next_product_no()
+        
+        if not product_no or len(product_no) > 50:
+            raise ValidationException("商品编号必须在1~50个字符之间")
         
         exists_no = ProductDAO.query_no_product(db, product_no)
         if exists_no:
             raise BusinessException("商品编号已存在")
+        
+        product_create.product_no = product_no
         
         name = product_create.name.strip()
         if not name:

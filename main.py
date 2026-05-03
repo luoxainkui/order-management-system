@@ -13,7 +13,7 @@ FastAPI 应用启动入口
 from fastapi import FastAPI
 from core.db import Base, engine
 from core.error_handler import register_error_handlers
-from api import product_api, order_api, user_api
+from api import product_api, order_api, user_api, stock_api
 
 
 # ======================================================================
@@ -48,6 +48,7 @@ register_error_handlers(app)
 app.include_router(product_api.router)
 app.include_router(order_api.router)
 app.include_router(user_api.router)
+app.include_router(stock_api.router)
 
 
 # ======================================================================

@@ -1,19 +1,24 @@
+# 环境变量
 .env
+
+# Python 缓存
 __pycache__/
 *.pyc
-*.pyo
-*.pyd
-.idea/
-.vscode/
-dist/
-build/
-*.egg-info/
-.DS_Store
-
-# 日志相关
-logs/
-*.log
 
 # 虚拟环境
 .venv/
 venv/
+
+# IDE
+.idea/
+.vscode/
+
+# 操作系统
+.DS_Store
+
+# 日志
+logs/
+*.log
+
+# 测试
+.pytest_cache/

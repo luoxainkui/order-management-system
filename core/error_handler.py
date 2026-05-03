@@ -9,7 +9,7 @@
 from fastapi import FastAPI, Request
 from fastapi.responses import JSONResponse
 from core.exception import (
-    BaseException,
+    BusinessBaseException,
     ValidationException,
     BusinessException,
     NotFoundException,
@@ -17,6 +17,7 @@ from core.exception import (
     UnauthorizedException
 )
 from core.logger import get_logger
+import time
 
 
 logger = get_logger("error_handler")
@@ -46,8 +47,8 @@ def register_error_handlers(app: FastAPI):
     之后所有接口抛出的自定义异常都会被自动降级处理!
     """
 
-    @app.exception_handler(BaseException)
-    async def base_exception_handler(request: Request, exc: BaseException):
+    @app.exception_handler(BusinessBaseException)
+    async def base_exception_handler(request: Request, exc: BusinessBaseException):
         """
         自定义异常降级处理
         
@@ -64,7 +65,7 @@ def register_error_handlers(app: FastAPI):
                 "code": exc.code,
                 "msg": exc.message,
                 "data": None,
-                "timestamp": exc.timestamp
+                "timestamp": int(time.time())
             }
         )
 
@@ -84,6 +85,6 @@ def register_error_handlers(app: FastAPI):
                 "code": 500,
                 "msg": "服务器繁忙, 请稍后重试",
                 "data": None,
-                "timestamp": __import__("time").time()
+                "timestamp": int(time.time())
             }
         )

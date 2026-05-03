@@ -12,10 +12,10 @@ from typing import Optional
 # ======================================================================
 
 class ProductCreate(BaseModel):
-    product_no: str = Field(..., min_length=1, max_length=50, description="商品编号")
+    product_no: Optional[str] = Field(None, min_length=1, max_length=50, description="商品编号(不传则自动生成)")
     name: str = Field(..., min_length=1, max_length=100, description="商品名称")
-    price: int = Field(..., ge=0, description="商品价格, 单位: 分")
-    stock: int = Field(0, ge=0, description="库存数量")
+    price: int = Field(..., ge=0, le=999999, description="商品价格, 单位: 分")
+    stock: int = Field(0, ge=0, le=999999, description="库存数量")
     
     model_config = {
         "json_schema_extra": {
@@ -34,10 +34,10 @@ class ProductCreate(BaseModel):
 # ======================================================================
 
 class ProductUpdate(BaseModel):
-    product_no: Optional[str] = Field(None, min_length=1, max_length=50, description="商品编号")
+    product_no: Optional[str] = Field(None, min_length=1, max_length=50, description="商品编号(不传则不修改)")
     name: Optional[str] = Field(None, min_length=1, max_length=100, description="商品名称")
-    price: Optional[int] = Field(None, ge=0, description="商品价格, 单位: 分")
-    stock: Optional[int] = Field(None, ge=0, description="库存数量")
+    price: Optional[int] = Field(None, ge=0, le=999999, description="商品价格, 单位: 分")
+    stock: Optional[int] = Field(None, ge=0, le=999999, description="库存数量")
     
     model_config = {
         "json_schema_extra": {
