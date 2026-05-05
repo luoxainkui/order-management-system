@@ -5,6 +5,26 @@ Pydantic 校验规则定义
 """
 from pydantic import BaseModel, Field
 from typing import Optional
+from datetime import datetime
+
+
+# ======================================================================
+# 商品响应 Schema
+# ======================================================================
+
+class ProductResponse(BaseModel):
+    """商品响应体 - 把 ORM 对象序列化成 JSON"""
+    id: int
+    product_no: str
+    name: str
+    price: int
+    stock: int
+    is_delete: int
+    created_at: datetime | None = None
+    updated_at: datetime | None = None
+    delete_time: datetime | None = None
+
+    model_config = {"from_attributes": True}
 
 
 # ======================================================================
